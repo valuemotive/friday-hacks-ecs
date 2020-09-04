@@ -16,7 +16,8 @@ const GET_BETTER_CHANCE = 0.2
 const WITHER_CHANCE = 0.05
 const MIN_SAFE_DISTANCE = 2.0
 
-// components
+// COMPONENTS
+// ----------
 
 // a component with data
 interface Person {
@@ -31,12 +32,16 @@ interface Position {
 }
 const Position = component<Position>("Position")
 
+type TreeKind = "palmtree" | "oak" | "pine"
+const Tree = component<TreeKind>("Tree")
+
 // symbolic component, like a flag
 const Alive = component<"Alive">("Alive")
 const Infected = component<"Infected">("Infected")
 const Dead = component<"Dead">("Dead")
 
-// systems
+// SYSTEMS
+// -------
 
 // startup system, runs only once (based on the InitEvent requirement)
 const init = system(InitEvent, function (world) {
@@ -50,11 +55,11 @@ const spreadInfection = system(UpdateTick, function (world) {
   for (const infectedPerson of world.query(Person, Position, Alive, Infected)) {
     for (const healthyPerson of world.query(Person, Position, Alive)) {
       if (
+        Math.random() <= INFECT_CHANCE &&
         withinUnsafeRadius(
           infectedPerson.get(Position),
           healthyPerson.get(Position)
-        ) &&
-        Math.random() <= INFECT_CHANCE
+        )
       ) {
         healthyPerson.set(Infected, "Infected")
       }
@@ -89,11 +94,11 @@ const updateInfected = system(UpdateTick, function (world) {
 const render = system(UpdateTick, function (world) {
   console.clear()
 
-  const entities: Array<Entity> = [...world.query(Person, Position)]
+  const entities: Array<Entity> = [...world.query(Position)]
   let chars = []
 
-  for (let x = 1; x <= GRID_SIZE; x++) {
-    for (let y = 1; y <= GRID_SIZE; y++) {
+  for (let y = 1; y <= GRID_SIZE; y++) {
+    for (let x = 1; x <= GRID_SIZE; x++) {
       const entity = entities.filter((e) => {
         const pos = e.get(Position)
         return pos.x === x && pos.y === y
@@ -101,26 +106,39 @@ const render = system(UpdateTick, function (world) {
 
       // emojis have a width of two chars
       chars.push(entity ? display(entity) : "  ")
-    }
 
-    if (chars.length === GRID_SIZE) {
-      console.log(chars.join(""))
-      chars = []
+      if (chars.length === GRID_SIZE) {
+        console.log(chars.join(""))
+        chars = []
+      }
     }
   }
 })
 
 function display(entity: Entity): string {
-  if (entity.has(Dead)) {
-    return "💀"
-  } else if (entity.has(Infected)) {
-    return "🤢"
-  } else {
-    return entity.get(Person).avatar
+  if (entity.has(Tree)) {
+    switch (entity.get(Tree)) {
+      case "pine":
+        return "🌲"
+
+      case "palmtree":
+        return "🌴"
+    }
+  } else if (entity.has(Person)) {
+    if (entity.has(Dead)) {
+      return "💀"
+    } else if (entity.has(Infected)) {
+      return "🤢"
+    } else {
+      return entity.get(Person).avatar
+    }
   }
+
+  return ""
 }
 
-// helpers
+// HELPERS
+// -------
 
 function populate(world: World) {
   world
@@ -132,7 +150,7 @@ function populate(world: World) {
   world
     .create()
     .set(Person, { name: "Richard", avatar: "🤠" })
-    .set(Position, { x: 1, y: 4 })
+    .set(Position, { x: 4, y: 1 })
     .set(Alive, "Alive")
 
   world
@@ -146,10 +164,16 @@ function populate(world: World) {
     .set(Person, { name: "Abigail", avatar: "👵" })
     .set(Position, { x: 5, y: 5 })
     .set(Alive, "Alive")
+    // the patient zero
     .set(Infected, "Infected")
+
+  // static entity
+  world.create().set(Tree, "palmtree").set(Position, { x: 1, y: 5 })
+  world.create().set(Tree, "pine").set(Position, { x: 2, y: 2 })
 }
 
-// setup
+// SETUP
+// -----
 
 start([
   gameClock(TICK_INTERVAL_SECONDS),
